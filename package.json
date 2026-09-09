@@ -2,13 +2,17 @@
   "name": "git-practice-tool",
   "version": "0.1.0",
   "description": "场景化 Git 练习工具：在沙盒中用真实 git 命令完成挑战",
-  "main": "src/cli.js",
+  "main": "src/cli/cli.js",
   "bin": {
-    "git-practice": "src/cli.js"
+    "git-practice": "src/cli/cli.js"
   },
   "scripts": {
-    "start": "node src/cli.js",
-    "list": "node src/cli.js --list"
+    "start": "node src/cli/cli.js",
+    "web": "node src/cli/cli.js web",
+    "list": "node src/cli/cli.js --list"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
   },
   "engines": {
     "node": ">=16"

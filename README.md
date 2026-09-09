@@ -1,28 +1,40 @@
 # git-practice-tool
 
-场景化 Git 练习工具：在隔离的沙盒仓库里，用**真实的 git 命令**完成一个个挑战，工具实时校验你是否达成目标。
+场景化 Git 练习工具：在隔离的沙盒仓库里，用**真实的 git 命令**完成一个个挑战，工具实时校验你是否达成目标。支持 **CLI 终端模式** 和 **Web 浏览器模式**，两种模式共用同一套场景和校验逻辑。
 
 ## 特点
 
 - ✅ 真实 git 行为（在临时目录中运行，不污染你的仓库）
-- ✅ 场景化挑战 + 即时校验
-- ✅ 分步提示 / 参考答案 / 一键重置
-- ✅ 提交图可视化（`graph` 命令）
+- ✅ 场景化挑战 + 即时校验，完成一个自动进入下一个
+- ✅ 分步提示 / 参考答案 / 一键重置 / 跳过
+- ✅ 提交图可视化（CLI 文本图 + Web 彩色图）
+- ✅ 双端一致：CLI 与 Web 共用同一批场景
 
 ## 快速开始
 
 ```bash
-# 从头开始，连续闯关（完成一个自动进入下一个）
-node src/cli.js
+npm install
 
-# 从指定场景开始，往后连续闯关
-node src/cli.js 02-branch
+# CLI 模式：从头开始，连续闯关
+node src/cli/cli.js
+
+# 从指定场景开始
+node src/cli/cli.js 02-branch
 
 # 查看所有场景
-node src/cli.js --list
+node src/cli/cli.js --list
+
+# Web 模式：启动本地服务 + 自动打开浏览器
+node src/cli/cli.js web
+# 或
+npm run web
 ```
 
-进入场景后，直接输入 git 命令即可操作；另有以下特殊命令：
+Web 版默认监听 `http://localhost:3000`，可用 `PORT=8080` 指定端口。
+
+### 特殊命令
+
+CLI 里直接输入；Web 里可以直接在终端输入，也可以点侧边栏按钮：
 
 | 命令 | 作用 |
 |------|------|
@@ -33,7 +45,7 @@ node src/cli.js --list
 | `solution` | 查看参考答案 |
 | `reset` | 重置当前场景重新开始 |
 | `next` | 跳过当前场景，进入下一个 |
-| `quit` | 退出 |
+| `quit` | 退出（仅 CLI） |
 
 ## 当前场景
 
@@ -43,9 +55,27 @@ node src/cli.js --list
 | 02-branch | 创建分支 | 入门 |
 | 03-merge | 合并分支 | 入门 |
 
+## 项目结构
+
+```
+src/
+├── core/               # 共享核心（CLI 与 Web 共用）
+│   ├── git.js          # git 命令封装
+│   ├── sandbox.js      # 隔离沙盒（临时仓库 + 自动清理）
+│   ├── render.js       # 提交图/状态文本
+│   ├── loader.js       # 场景加载
+│   ├── session.js      # 场景会话（命令分发、校验、提示）
+│   └── colors.js       # ANSI 颜色常量
+├── cli/
+│   └── cli.js          # CLI 前端（终端 REPL）
+└── web/
+    ├── server.js       # HTTP + WebSocket 服务
+    └── public/         # 浏览器前端（xterm.js 终端 + 提交图面板）
+```
+
 ## 如何新增场景
 
-在 `scenarios/` 下新建一个目录，放入 `index.js`，导出三个部分：
+在 `scenarios/` 下新建一个目录，放入 `index.js`，导出三个部分。**CLI 和 Web 会自动同时生效**：
 
 ```js
 module.exports = {

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Git 练习工具</title>
+  <link rel="stylesheet" href="/vendor/xterm.css">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span class="logo">⎇</span>
+      <h1>Git 练习工具</h1>
+    </div>
+    <div class="controls">
+      <select id="scenario-select" title="选择场景"></select>
+      <button id="restart-btn" class="ghost">↺ 重新开始</button>
+    </div>
+    <div id="progress" class="progress"></div>
+  </header>
+
+  <main>
+    <section class="terminal-panel">
+      <div class="panel-title">终端</div>
+      <div id="terminal"></div>
+    </section>
+
+    <aside class="info-panel">
+      <div id="scenario-info" class="panel-block"></div>
+
+      <div class="panel-block">
+        <div class="panel-title">工作区状态</div>
+        <pre id="status-box"></pre>
+      </div>
+
+      <div class="panel-block graph-block">
+        <div class="panel-title">提交图</div>
+        <pre id="graph-box"></pre>
+      </div>
+
+      <div class="panel-block actions">
+        <button data-cmd="check" class="primary">✓ 检查 (check)</button>
+        <button data-cmd="hint">💡 提示 (hint)</button>
+        <button data-cmd="graph">🕸 提交图 (graph)</button>
+        <button data-cmd="solution">📖 答案 (solution)</button>
+        <button data-cmd="reset">↺ 重置 (reset)</button>
+        <button data-cmd="next">⏭ 下一题 (next)</button>
+      </div>
+    </aside>
+  </main>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="/vendor/xterm.js"></script>
+  <script src="/vendor/xterm-addon-fit.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

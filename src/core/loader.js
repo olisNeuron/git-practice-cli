@@ -8,7 +8,7 @@ const path = require('path');
  * 每个场景目录包含一个 index.js，导出 { meta, setup, validate }。
  */
 function loadScenarios() {
-  const dir = path.join(__dirname, '..', 'scenarios');
+  const dir = path.join(__dirname, '..', '..', 'scenarios');
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   const scenarios = [];
 
