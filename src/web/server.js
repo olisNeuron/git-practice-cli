@@ -8,7 +8,6 @@ const { WebSocketServer } = require('ws');
 const { loadScenarios } = require('../core/loader');
 const { Session } = require('../core/session');
 
-const PORT = Number(process.env.PORT) || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
 const MIME = {
@@ -45,140 +44,172 @@ function serveStatic(req, res) {
 }
 
 function scenarioSummary(s) {
+  return { id: s.meta.id, title: s.meta.title, difficulty: s.meta.difficulty };
+}
+
+function scenarioMeta(s) {
   return {
     id: s.meta.id,
     title: s.meta.title,
     difficulty: s.meta.difficulty,
+    description: s.meta.description,
+    goal: s.meta.goal,
   };
 }
 
-const server = http.createServer((req, res) => {
-  if (req.url.startsWith('/api/scenarios')) {
-    sendJSON(res, 200, loadScenarios().map(scenarioSummary));
-    return;
-  }
-  serveStatic(req, res);
-});
-
-const wss = new WebSocketServer({ server });
-
-// 所有活跃会话，用于退出时统一清理
-const activeSessions = new Set();
-
-function shutdown() {
-  for (const s of activeSessions) s.cleanup();
-  activeSessions.clear();
-  server.close(() => process.exit(0));
-  setTimeout(() => process.exit(0), 500).unref();
-}
-
-process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
-
-wss.on('connection', (ws) => {
-  let session = null;
+/**
+ * 启动会话服务器。
+ * 维护一个全局唯一会话（沙盒 + 场景状态），所有客户端（Web / CLI attach）共享，
+ * 任一客户端执行命令后，结果广播给所有客户端，实现实时切换。
+ */
+function startServer({ openBrowser = true, port } = {}) {
+  const PORT = port || Number(process.env.PORT) || 3000;
   const scenarios = loadScenarios();
+  const total = scenarios.length;
 
-  const send = (obj) => {
-    if (ws.readyState === 1) ws.send(JSON.stringify(obj));
-  };
-
-  send({ type: 'scenarios', scenarios: scenarios.map(scenarioSummary) });
-
-  const startSession = async (id) => {
-    if (session) {
-      session.cleanup();
-      activeSessions.delete(session);
-    }
-    const scenario = scenarios.find((s) => s.meta.id === id) || scenarios[0];
-    session = new Session(scenario);
-    activeSessions.add(session);
-    await session.init();
-    const snap = await session.snapshot();
-    const index = scenarios.findIndex((s) => s.meta.id === scenario.meta.id);
-    send({
-      type: 'scenario',
-      meta: {
-        id: scenario.meta.id,
-        title: scenario.meta.title,
-        difficulty: scenario.meta.difficulty,
-        description: scenario.meta.description,
-        goal: scenario.meta.goal,
-      },
-      index,
-      total: scenarios.length,
-      graph: snap.graph,
-      status: snap.status,
-    });
-  };
-
-  ws.on('message', async (data) => {
-    let msg;
-    try {
-      msg = JSON.parse(data);
-    } catch (_) {
+  const server = http.createServer((req, res) => {
+    if (req.url.startsWith('/api/scenarios')) {
+      sendJSON(res, 200, scenarios.map(scenarioSummary));
       return;
     }
-
-    if (msg.type === 'start') {
-      await startSession(msg.id);
-      return;
-    }
-
-    if (msg.type === 'input') {
-      if (!session) {
-        send({ type: 'response', output: '请先选择一个场景。', action: 'continue', passed: false });
-        return;
-      }
-      const result = await session.run(msg.text);
-      send({
-        type: 'response',
-        output: result.output,
-        graph: result.graph,
-        status: result.status,
-        action: result.action,
-        passed: result.passed,
-      });
-      return;
-    }
-
-    if (msg.type === 'reset') {
-      if (session) {
-        const result = await session.run('reset');
-        send({
-          type: 'response',
-          output: result.output,
-          graph: result.graph,
-          status: result.status,
-          action: result.action,
-          passed: result.passed,
-        });
-      }
-    }
+    serveStatic(req, res);
   });
 
-  ws.on('close', () => {
+  const wss = new WebSocketServer({ server });
+
+  // 全局唯一会话状态
+  let session = null;
+  let currentIndex = -1;
+  let advanceTimer = null;
+  const activeSessions = new Set();
+
+  function broadcast(obj) {
+    const data = JSON.stringify(obj);
+    for (const client of wss.clients) {
+      if (client.readyState === 1) client.send(data);
+    }
+  }
+
+  function sendTo(ws, obj) {
+    if (ws.readyState === 1) ws.send(JSON.stringify(obj));
+  }
+
+  async function startSession(id) {
+    clearTimeout(advanceTimer);
     if (session) {
       session.cleanup();
       activeSessions.delete(session);
       session = null;
     }
+    const scenario = scenarios.find((s) => s.meta.id === id) || scenarios[0];
+    currentIndex = scenarios.findIndex((s) => s.meta.id === scenario.meta.id);
+    session = new Session(scenario);
+    activeSessions.add(session);
+    await session.init();
+    const snap = await session.snapshot();
+    broadcast({
+      type: 'scenario',
+      meta: scenarioMeta(scenario),
+      index: currentIndex,
+      total,
+      graph: snap.graph,
+      status: snap.status,
+    });
+  }
+
+  async function handleInput(text) {
+    if (!session || !session.sandbox) {
+      broadcast({ type: 'output', text: '会话正在初始化，请稍候…' });
+      return;
+    }
+    const result = await session.run(text);
+    broadcast({ type: 'output', text: result.output });
+    broadcast({
+      type: 'state',
+      graph: result.graph,
+      status: result.status,
+      action: result.action,
+      passed: result.passed,
+    });
+
+    if (result.action === 'passed' && currentIndex + 1 < total) {
+      // 达成目标后稍作停留，自动进入下一场景
+      advanceTimer = setTimeout(() => {
+        startSession(scenarios[currentIndex + 1].meta.id);
+      }, 1200);
+    } else if (result.action === 'next' && currentIndex + 1 < total) {
+      await startSession(scenarios[currentIndex + 1].meta.id);
+    }
+  }
+
+  wss.on('connection', (ws) => {
+    sendTo(ws, { type: 'scenarios', scenarios: scenarios.map(scenarioSummary) });
+
+    if (session && session.sandbox) {
+      const s = session.scenario;
+      session.snapshot().then((snap) =>
+        sendTo(ws, {
+          type: 'scenario',
+          meta: scenarioMeta(s),
+          index: currentIndex,
+          total,
+          graph: snap.graph,
+          status: snap.status,
+        })
+      );
+    } else if (!session) {
+      // 首个客户端接入时自动开始第一个场景（广播给所有客户端）
+      startSession(scenarios[0].meta.id);
+    }
+    // 若 session 正在初始化（非 null 但 sandbox 尚未就绪），
+    // 无需额外处理：startSession 完成后的广播会到达此客户端。
+
+    ws.on('message', async (data) => {
+      let msg;
+      try {
+        msg = JSON.parse(data);
+      } catch (_) {
+        return;
+      }
+      if (msg.type === 'start') await startSession(msg.id);
+      else if (msg.type === 'input') await handleInput(msg.text);
+    });
+
+    ws.on('error', () => {
+      // 连接级错误忽略，清理交给 close / shutdown
+    });
   });
 
-  ws.on('error', () => {
-    // 忽略连接级错误，避免进程崩溃；清理交给 close 事件
+  function shutdown() {
+    clearTimeout(advanceTimer);
+    for (const s of activeSessions) s.cleanup();
+    activeSessions.clear();
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(0), 500).unref();
+  }
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
+
+  server.listen(PORT, () => {
+    const url = `http://localhost:${PORT}`;
+    console.log('');
+    console.log('Git 练习工具会话服务器已启动');
+    console.log(`  Web 视图:  ${url}`);
+    console.log(`  CLI 视图:  node src/cli/cli.js attach${PORT !== 3000 ? `  (PORT=${PORT})` : ''}`);
+    console.log('  两端实时同步，任一端操作另一端即时刷新');
+    console.log('  按 Ctrl+C 退出服务器');
+    console.log('');
+    if (openBrowser) {
+      const opener = process.platform === 'darwin' ? 'open' : 'xdg-open';
+      exec(`${opener} ${url}`, () => {});
+    }
   });
-});
 
-server.listen(PORT, () => {
-  const url = `http://localhost:${PORT}`;
-  console.log('');
-  console.log('Git 练习工具 Web 版已启动');
-  console.log(`请用浏览器打开: ${url}`);
-  console.log('按 Ctrl+C 退出');
-  console.log('');
+  return server;
+}
 
-  // 尽力自动打开浏览器（无图形环境时静默失败）
-  const opener = process.platform === 'darwin' ? 'open' : 'xdg-open';
-  exec(`${opener} ${url}`, () => {});
-});
+module.exports = { startServer };
+
+if (require.main === module) {
+  startServer({ openBrowser: true });
+}

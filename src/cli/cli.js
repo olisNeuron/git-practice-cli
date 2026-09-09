@@ -29,15 +29,16 @@ process.stdout.on('error', (err) => {
  * 逐行读取器：同时支持交互式 TTY 和管道输入。
  * next() 返回一行文本；输入结束（EOF）时返回 null。
  */
-function createLineReader() {
+function createLineReader(onInterrupt) {
   const rl = readline.createInterface({ input: process.stdin });
   const queue = [];
   let waiters = [];
   let done = false;
 
   // 交互终端里 readline 处于 raw 模式，Ctrl+C 不会产生 SIGINT 信号，
-  // 而是触发接口的 SIGINT 事件，这里手动接管并清理沙盒。
-  rl.on('SIGINT', () => cleanupAndExit());
+  // 而是触发接口的 SIGINT 事件，这里手动接管（默认清理沙盒并退出）。
+  const handleInterrupt = onInterrupt || cleanupAndExit;
+  rl.on('SIGINT', () => handleInterrupt());
 
   rl.on('line', (line) => {
     const waiter = waiters.shift();
@@ -176,12 +177,93 @@ async function listScenarios() {
   }
   console.log('');
   console.log(`用法:`);
-  console.log(`  git-practice                 从头开始，连续闯关`);
+  console.log(`  git-practice                 从头开始，连续闯关（独立 CLI 模式）`);
   console.log(`  git-practice <场景id>        从指定场景开始，往后连续闯关`);
   console.log(`  git-practice --list          列出所有场景`);
-  console.log(`  git-practice web             启动 Web 可视化版（浏览器）`);
+  console.log(`  git-practice web             启动共享服务器 + 浏览器（Web 视图）`);
+  console.log(`  git-practice attach          以 CLI 方式连接共享服务器（实时切换）`);
+  console.log(`  git-practice serve           仅启动共享服务器（不开浏览器）`);
   console.log('');
   return scenarios;
+}
+
+function printAttachHeader(meta, index, total) {
+  console.log('');
+  console.log(`${c.bold}${c.cyan}════════════════════════════════════════${c.reset}`);
+  console.log(`${c.bold}${c.cyan}  ${meta.id}  ${meta.title}${c.reset}`);
+  console.log(`${c.dim}  难度: ${meta.difficulty}  [第 ${index + 1}/${total} 个场景]${c.reset}`);
+  console.log(`${c.bold}${c.cyan}════════════════════════════════════════${c.reset}`);
+  console.log(`${c.bold}目标${c.reset}: ${c.yellow}${meta.goal}${c.reset}`);
+  console.log('');
+}
+
+/** 以 CLI 客户端方式连接共享会话服务器，实现与 Web 的实时切换 */
+async function attachCli() {
+  const PORT = Number(process.env.PORT) || 3000;
+  const url = `ws://localhost:${PORT}`;
+  console.log(`${c.dim}正在连接会话服务器 ${url} ...${c.reset}`);
+
+  const ws = new WebSocket(url);
+  const reader = createLineReader(() => {
+    console.log(`\n${c.dim}已断开连接（服务器仍在运行）。${c.reset}`);
+    ws.close();
+    process.exit(0);
+  });
+
+  ws.onopen = () => {
+    console.log(`${c.green}已连接${c.reset}。输入命令操作；${c.cyan}quit${c.reset} 断开连接（不影响服务器）。`);
+  };
+
+  ws.onmessage = (event) => {
+    let msg;
+    try {
+      msg = JSON.parse(event.data);
+    } catch (_) {
+      return;
+    }
+
+    if (msg.type === 'scenario') {
+      printAttachHeader(msg.meta, msg.index, msg.total);
+      console.log(`${c.dim}${msg.status}${c.reset}`);
+      console.log(`${c.dim}${msg.graph}${c.reset}`);
+    } else if (msg.type === 'output') {
+      if (msg.text) console.log(msg.text);
+    } else if (msg.type === 'state') {
+      if (msg.action === 'passed') {
+        console.log(`${c.dim}最终提交图：${c.reset}`);
+        console.log(`${c.dim}${msg.graph}${c.reset}`);
+      }
+    }
+  };
+
+  ws.onerror = () => {
+    console.error(`${c.red}连接失败${c.reset}：请先启动服务器（${c.cyan}node src/cli/cli.js web${c.reset} 或 ${c.cyan}serve${c.reset}）`);
+    process.exit(1);
+  };
+
+  ws.onclose = () => {
+    console.log(`${c.dim}连接已断开。${c.reset}`);
+    process.exit(0);
+  };
+
+  while (true) {
+    process.stdout.write(`${c.bold}${c.magenta}attach${c.reset} > `);
+    const line = await reader.next();
+    if (line === null) {
+      ws.close();
+      return;
+    }
+    const input = line.trim();
+    if (!input) continue;
+    if (input === 'quit' || input === 'exit') {
+      console.log(`${c.dim}已断开连接（服务器仍在运行）。${c.reset}`);
+      ws.close();
+      return;
+    }
+    if (ws.readyState === 1) {
+      ws.send(JSON.stringify({ type: 'input', text: input }));
+    }
+  }
 }
 
 async function main() {
@@ -193,7 +275,15 @@ async function main() {
   }
 
   if (arg === 'web') {
-    require('../web/server');
+    require('../web/server').startServer({ openBrowser: true });
+    return;
+  }
+  if (arg === 'serve') {
+    require('../web/server').startServer({ openBrowser: false });
+    return;
+  }
+  if (arg === 'attach') {
+    await attachCli();
     return;
   }
 

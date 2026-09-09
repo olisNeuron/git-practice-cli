@@ -45,10 +45,12 @@ class Session {
   }
 
   async graph() {
+    if (!this.sandbox) return '(会话初始化中…)';
     return renderGraph(this.sandbox.git);
   }
 
   async status() {
+    if (!this.sandbox) return '';
     return renderStatus(this.sandbox.git);
   }
 

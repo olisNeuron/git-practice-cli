@@ -146,8 +146,7 @@
       scenarioSelect.innerHTML = scenarios
         .map((s) => `<option value="${escapeHtml(s.id)}">${escapeHtml(s.title)}</option>`)
         .join('');
-      // 首次连接自动开始第一个场景
-      if (scenarios.length) startScenario(scenarios[0].id);
+      // 服务器会在首个客户端接入时自动开始第一个场景，这里无需手动 start
     } else if (msg.type === 'scenario') {
       currentIndex = msg.index;
       total = msg.total;
@@ -159,32 +158,20 @@
       term.write(`\x1b[1;36m${escapeHtml(msg.meta.id)}  ${escapeHtml(msg.meta.title)}\x1b[0m\r\n\r\n`);
       busy = false;
       writePrompt();
-    } else if (msg.type === 'response') {
-      writeOutput(msg.output);
+    } else if (msg.type === 'output') {
+      writeOutput(msg.text);
+      busy = false;
+    } else if (msg.type === 'state') {
       updatePanels(msg.graph, msg.status);
       busy = false;
 
       if (msg.action === 'passed') {
-        if (currentIndex + 1 < total) {
-          showToast(`🎉 完成！进入下一题...`, 1400);
-          setTimeout(() => {
-            if (scenarios[currentIndex + 1]) startScenario(scenarios[currentIndex + 1].id);
-          }, 1400);
-        } else {
-          showToast('🎉 恭喜！你已完成全部场景！', 4000);
-          writePrompt();
-        }
+        // 服务器会在稍后自动进入下一场景（广播新的 scenario）
+        showToast(currentIndex + 1 < total ? '🎉 完成！即将进入下一题...' : '🎉 恭喜！你已完成全部场景！', 2000);
       } else if (msg.action === 'next') {
-        if (currentIndex + 1 < total) {
-          showToast('已跳过，进入下一题');
-          startScenario(scenarios[currentIndex + 1].id);
-        } else {
-          showToast('这已经是最后一题了');
-          writePrompt();
-        }
-      } else {
-        writePrompt();
+        showToast('已跳过，进入下一题');
       }
+      writePrompt();
     }
   };
 
