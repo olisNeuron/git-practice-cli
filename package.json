@@ -1,0 +1,17 @@
+{
+  "name": "git-practice-tool",
+  "version": "0.1.0",
+  "description": "场景化 Git 练习工具：在沙盒中用真实 git 命令完成挑战",
+  "main": "src/cli.js",
+  "bin": {
+    "git-practice": "src/cli.js"
+  },
+  "scripts": {
+    "start": "node src/cli.js",
+    "list": "node src/cli.js --list"
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "license": "MIT"
+}
