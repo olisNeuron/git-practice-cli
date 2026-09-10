@@ -133,10 +133,25 @@ pre {
 
 .graph-block { flex: 1 1 auto; }
 
-#graph-box .hash { color: var(--cyan); }
-#graph-box .head { color: var(--yellow); font-weight: bold; }
-#graph-box .branch { color: var(--green); }
-#graph-box .arrow { color: var(--text-dim); }
+.graph-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.graph-tools { display: flex; align-items: center; gap: 4px; }
+.graph-tools .tab {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-dim);
+  padding: 2px 8px;
+  font-size: 12px;
+  border-radius: 5px;
+}
+.graph-tools .tab:hover { color: var(--text); background: #21262d; }
+.graph-tools .tab.active { color: var(--text); background: #21262d; border-color: var(--border); }
+.graph-tools .sep { color: var(--border); }
+
+.graph-box { overflow: auto; max-height: 46vh; }
+.graph-box svg { display: block; }
+.graph-text { max-height: 46vh; overflow: auto; }
+.graph-empty { color: var(--text-dim); font-size: 13px; padding: 6px 0; }
+.hidden { display: none !important; }
 
 .actions {
   display: grid;

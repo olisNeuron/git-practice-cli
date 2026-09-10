@@ -35,8 +35,18 @@
       </div>
 
       <div class="panel-block graph-block">
-        <div class="panel-title">提交图</div>
-        <pre id="graph-box"></pre>
+        <div class="panel-title graph-header">
+          <span>提交图</span>
+          <span class="graph-tools">
+            <button class="tab active" data-gview="graph">图形</button>
+            <button class="tab" data-gview="text">文本</button>
+            <span class="sep">|</span>
+            <button class="tab active" data-gsource="mine">我的</button>
+            <button class="tab" data-gsource="target">目标</button>
+          </span>
+        </div>
+        <div id="graph-box" class="graph-box"></div>
+        <pre id="graph-text" class="graph-text hidden"></pre>
       </div>
 
       <div class="panel-block actions">
@@ -55,6 +65,7 @@
   <script src="/vendor/xterm.js"></script>
   <script src="/vendor/xterm-addon-fit.js"></script>
   <script src="/line-editor.js"></script>
+  <script src="/graph.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

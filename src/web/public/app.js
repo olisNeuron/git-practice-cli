@@ -1,6 +1,6 @@
 'use strict';
 
-/* global Terminal, FitAddon, LineEditor */
+/* global Terminal, FitAddon, LineEditor, GitGraph */
 
 (() => {
   const term = new Terminal({
@@ -25,6 +25,7 @@
   const $ = (sel) => document.querySelector(sel);
   const statusBox = $('#status-box');
   const graphBox = $('#graph-box');
+  const graphText = $('#graph-text');
   const scenarioInfo = $('#scenario-info');
   const scenarioSelect = $('#scenario-select');
   const progressEl = $('#progress');
@@ -38,22 +39,15 @@
 
   const PROMPT = '\x1b[1;35m> \x1b[0m';
 
+  // 提交图状态：视图（图形/文本）× 来源（我的/目标）
+  let graphView = 'graph';
+  let graphSource = 'mine';
+  let graphMine = { text: '', data: [] };
+  let graphTarget = { text: '', data: [] };
+
   // ---------- 工具函数 ----------
   function escapeHtml(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  }
-
-  function highlightGraph(text) {
-    let s = escapeHtml(text);
-    s = s.replace(/\b([0-9a-f]{7,40})\b/g, '<span class="hash">$1</span>');
-    s = s.replace(/\(([^)]*)\)/g, (_m, inner) => {
-      let t = inner.replace(/HEAD/g, '\u00a7HEAD\u00a7').replace(/-&gt;/g, '\u00a7ARROW\u00a7');
-      t = t.replace(/([A-Za-z0-9_.\/-]+)/g, '<span class="branch">$1</span>');
-      t = t.replace(/\u00a7HEAD\u00a7/g, '<span class="head">HEAD</span>');
-      t = t.replace(/\u00a7ARROW\u00a7/g, '<span class="arrow">-&gt;</span>');
-      return '(' + t + ')';
-    });
-    return s;
   }
 
   function showToast(text, ms = 1600) {
@@ -91,8 +85,26 @@
     term.write(text.replace(/\n/g, '\r\n') + '\r\n');
   }
 
-  function updatePanels(graph, status) {
-    if (graph !== undefined) graphBox.innerHTML = highlightGraph(graph);
+  // ---------- 面板更新 ----------
+  function renderGraphPanel() {
+    const src = graphSource === 'target' ? graphTarget : graphMine;
+    const showText = graphView === 'text';
+    graphBox.classList.toggle('hidden', showText);
+    graphText.classList.toggle('hidden', !showText);
+
+    if (showText) {
+      graphText.textContent = src.text || '(还没有提交)';
+      return;
+    }
+    if (!src.data || src.data.length === 0) {
+      graphBox.innerHTML = '<div class="graph-empty">(还没有提交)</div>';
+      return;
+    }
+    const layout = GitGraph.buildLayout(src.data);
+    graphBox.innerHTML = GitGraph.toSVG(layout);
+  }
+
+  function updateStatus(status) {
     if (status !== undefined) statusBox.textContent = status;
   }
 
@@ -131,13 +143,15 @@
       scenarioSelect.innerHTML = scenarios
         .map((s) => `<option value="${escapeHtml(s.id)}">${escapeHtml(s.title)}</option>`)
         .join('');
-      // 服务器会在首个客户端接入时自动开始第一个场景，这里无需手动 start
     } else if (msg.type === 'scenario') {
       currentIndex = msg.index;
       total = msg.total;
       updateInfo(msg.meta);
       updateProgress(msg.index, msg.total);
-      updatePanels(msg.graph, msg.status);
+      updateStatus(msg.status);
+      graphMine = { text: msg.graph || '', data: msg.graphData || [] };
+      graphTarget = { text: msg.targetGraph || '', data: msg.targetGraphData || [] };
+      renderGraphPanel();
       scenarioSelect.value = msg.meta.id;
       term.reset();
       term.write(`\x1b[1;36m${escapeHtml(msg.meta.id)}  ${escapeHtml(msg.meta.title)}\x1b[0m\r\n\r\n`);
@@ -147,11 +161,12 @@
       writeOutput(msg.text);
       busy = false;
     } else if (msg.type === 'state') {
-      updatePanels(msg.graph, msg.status);
+      updateStatus(msg.status);
+      graphMine = { text: msg.graph || '', data: msg.graphData || [] };
+      renderGraphPanel();
       busy = false;
 
       if (msg.action === 'passed') {
-        // 服务器会在稍后自动进入下一场景（广播新的 scenario）
         showToast(currentIndex + 1 < total ? '🎉 完成！即将进入下一题...' : '🎉 恭喜！你已完成全部场景！', 2000);
       } else if (msg.action === 'next') {
         showToast('已跳过，进入下一题');
@@ -171,6 +186,22 @@
 
   $('#restart-btn').addEventListener('click', () => {
     startScenario(currentIndex >= 0 && scenarios[currentIndex] ? scenarios[currentIndex].id : scenarios[0]?.id);
+  });
+
+  document.querySelectorAll('.graph-tools .tab[data-gview]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      graphView = btn.dataset.gview;
+      document.querySelectorAll('.tab[data-gview]').forEach((b) => b.classList.toggle('active', b === btn));
+      renderGraphPanel();
+    });
+  });
+
+  document.querySelectorAll('.graph-tools .tab[data-gsource]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      graphSource = btn.dataset.gsource;
+      document.querySelectorAll('.tab[data-gsource]').forEach((b) => b.classList.toggle('active', b === btn));
+      renderGraphPanel();
+    });
   });
 
   document.querySelectorAll('.actions button[data-cmd]').forEach((btn) => {

@@ -2,7 +2,7 @@
 
 const { exec } = require('child_process');
 const { createSandbox, cleanupSandbox } = require('./sandbox');
-const { renderGraph, renderStatus } = require('./render');
+const { renderGraph, renderStatus, renderGraphData } = require('./render');
 const { c } = require('./colors');
 
 /** 在沙盒目录中用 shell 执行一条命令 */
@@ -49,13 +49,22 @@ class Session {
     return renderGraph(this.sandbox.git);
   }
 
+  async graphData() {
+    if (!this.sandbox) return [];
+    return renderGraphData(this.sandbox.git);
+  }
+
   async status() {
     if (!this.sandbox) return '';
     return renderStatus(this.sandbox.git);
   }
 
   async snapshot() {
-    return { graph: await this.graph(), status: await this.status() };
+    return {
+      graph: await this.graph(),
+      status: await this.status(),
+      graphData: await this.graphData(),
+    };
   }
 
   async run(input) {
@@ -135,8 +144,31 @@ class Session {
     }
 
     const snap = await this.snapshot();
-    return { action, passed, output, graph: snap.graph, status: snap.status };
+    return { action, passed, output, graph: snap.graph, status: snap.status, graphData: snap.graphData };
   }
 }
 
-module.exports = { Session, runShellCommand };
+/**
+ * 在一次性沙盒里跑一遍场景的参考答案，得到「目标提交图」。
+ * 用于 Web 端「我的图 ↔ 目标图」对比。
+ */
+async function computeTargetGraph(scenario) {
+  const sandbox = await createSandbox(`${scenario.meta.id}-target`);
+  try {
+    await scenario.setup(sandbox.git);
+    const commands = (scenario.meta.solution || '')
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    for (const cmd of commands) {
+      await runShellCommand(cmd, sandbox.dir);
+    }
+    return { graph: await renderGraph(sandbox.git), graphData: await renderGraphData(sandbox.git) };
+  } catch (_) {
+    return { graph: '', graphData: [] };
+  } finally {
+    cleanupSandbox(sandbox);
+  }
+}
+
+module.exports = { Session, runShellCommand, computeTargetGraph };

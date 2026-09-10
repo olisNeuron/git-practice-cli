@@ -90,6 +90,10 @@ test('server: 首页与静态资源可访问', async () => {
     const editor = await httpGet(port, '/line-editor.js');
     assert.equal(editor.status, 200);
     assert.match(editor.body, /createLineEditor/);
+
+    const graph = await httpGet(port, '/graph.js');
+    assert.equal(graph.status, 200);
+    assert.match(graph.body, /buildLayout/);
   } finally {
     await closeServer(server);
   }
@@ -113,6 +117,8 @@ test('server: 两个客户端共享同一会话并实时广播', async () => {
     const sb = await cb.wait('scenario');
     assert.equal(sa.meta.id, sb.meta.id, '两端应共享同一场景');
     assert.ok(sa.graph !== undefined);
+    assert.ok(Array.isArray(sa.graphData), '应下发结构化图数据');
+    assert.ok(Array.isArray(sa.targetGraphData), '应下发目标图数据');
 
     // A 执行命令，B 应实时收到同样的广播输出
     const bOutput = cb.wait('output');
@@ -123,6 +129,7 @@ test('server: 两个客户端共享同一会话并实时广播', async () => {
     // B 也应收到状态更新
     const bState = await cb.wait('state');
     assert.ok(bState.graph !== undefined);
+    assert.ok(Array.isArray(bState.graphData), '状态更新应包含图数据');
   } finally {
     try { a.terminate(); } catch (_) {}
     try { b.terminate(); } catch (_) {}

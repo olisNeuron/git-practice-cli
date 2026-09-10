@@ -6,7 +6,7 @@ const path = require('path');
 const { exec } = require('child_process');
 const { WebSocketServer } = require('ws');
 const { loadScenarios } = require('../core/loader');
-const { Session } = require('../core/session');
+const { Session, computeTargetGraph } = require('../core/session');
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
@@ -82,6 +82,15 @@ function startServer({ openBrowser = true, port } = {}) {
   let currentIndex = -1;
   let advanceTimer = null;
   const activeSessions = new Set();
+  const targetGraphCache = new Map();
+
+  async function targetGraphFor(scenario) {
+    const id = scenario.meta.id;
+    if (!targetGraphCache.has(id)) {
+      targetGraphCache.set(id, await computeTargetGraph(scenario));
+    }
+    return targetGraphCache.get(id);
+  }
 
   function broadcast(obj) {
     const data = JSON.stringify(obj);
@@ -107,6 +116,7 @@ function startServer({ openBrowser = true, port } = {}) {
     activeSessions.add(session);
     await session.init();
     const snap = await session.snapshot();
+    const target = await targetGraphFor(scenario);
     broadcast({
       type: 'scenario',
       meta: scenarioMeta(scenario),
@@ -114,6 +124,9 @@ function startServer({ openBrowser = true, port } = {}) {
       total,
       graph: snap.graph,
       status: snap.status,
+      graphData: snap.graphData,
+      targetGraph: target.graph,
+      targetGraphData: target.graphData,
     });
   }
 
@@ -128,6 +141,7 @@ function startServer({ openBrowser = true, port } = {}) {
       type: 'state',
       graph: result.graph,
       status: result.status,
+      graphData: result.graphData,
       action: result.action,
       passed: result.passed,
     });
@@ -147,7 +161,7 @@ function startServer({ openBrowser = true, port } = {}) {
 
     if (session && session.sandbox) {
       const s = session.scenario;
-      session.snapshot().then((snap) =>
+      Promise.all([session.snapshot(), targetGraphFor(s)]).then(([snap, target]) =>
         sendTo(ws, {
           type: 'scenario',
           meta: scenarioMeta(s),
@@ -155,6 +169,9 @@ function startServer({ openBrowser = true, port } = {}) {
           total,
           graph: snap.graph,
           status: snap.status,
+          graphData: snap.graphData,
+          targetGraph: target.graph,
+          targetGraphData: target.graphData,
         })
       );
     } else if (!session) {

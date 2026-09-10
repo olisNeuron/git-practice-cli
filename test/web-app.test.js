@@ -12,7 +12,7 @@ function mockElement() {
     innerHTML: '',
     value: '',
     dataset: {},
-    classList: { add() {}, remove() {} },
+    classList: { add() {}, remove() {}, toggle() {} },
     addEventListener() {},
   };
 }
@@ -34,6 +34,7 @@ function loadApp() {
   globalThis.Terminal = MockTerminal;
   globalThis.FitAddon = { FitAddon: MockFitAddon };
   globalThis.LineEditor = require('../src/web/public/line-editor.js');
+  globalThis.GitGraph = require('../src/web/public/graph.js');
   globalThis.location = { protocol: 'http:', host: 'localhost:3000' };
   globalThis.window = { addEventListener() {} };
   globalThis.WebSocket = class {
