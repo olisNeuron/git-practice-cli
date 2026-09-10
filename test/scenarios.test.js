@@ -44,13 +44,16 @@ for (const scenario of scenarios) {
       const commands = solutionCommands(scenario);
       assert.ok(commands.length > 0, '场景缺少 meta.solution');
 
+      const failures = [];
       for (const cmd of commands) {
         const r = await runShellCommand(cmd, session.sandbox.dir);
-        assert.equal(r.ok, true, `参考答案命令执行失败: ${cmd}\n${r.stderr}`);
+        // 允许个别命令失败（例如产生冲突的 git merge），最终以 validate 为准
+        if (!r.ok) failures.push(`  $ ${cmd}  ->  ${r.stderr || `exit ${r.code}`}`);
       }
 
       const result = await scenario.validate(session.sandbox.git);
-      assert.equal(result.passed, true, `参考答案未能通过校验：${result.message}`);
+      const detail = failures.length ? `\n失败的命令:\n${failures.join('\n')}` : '';
+      assert.equal(result.passed, true, `参考答案未能通过校验：${result.message}${detail}`);
     } finally {
       session.cleanup();
     }
