@@ -86,6 +86,10 @@ test('server: 首页与静态资源可访问', async () => {
 
     const app = await httpGet(port, '/app.js');
     assert.equal(app.status, 200);
+
+    const editor = await httpGet(port, '/line-editor.js');
+    assert.equal(editor.status, 200);
+    assert.match(editor.body, /createLineEditor/);
   } finally {
     await closeServer(server);
   }

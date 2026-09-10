@@ -1,6 +1,6 @@
 'use strict';
 
-/* global Terminal, FitAddon */
+/* global Terminal, FitAddon, LineEditor */
 
 (() => {
   const term = new Terminal({
@@ -34,7 +34,6 @@
   let currentIndex = 0;
   let total = 0;
   let busy = false;
-  let lineBuffer = '';
   let toastTimer = null;
 
   const PROMPT = '\x1b[1;35m> \x1b[0m';
@@ -64,8 +63,27 @@
     toastTimer = setTimeout(() => toast.classList.add('hidden'), ms);
   }
 
+  // ---------- 命令发送 ----------
+  function sendCommand(cmd) {
+    if (busy) return;
+    busy = true;
+    ws.send(JSON.stringify({ type: 'input', text: cmd }));
+  }
+
+  function startScenario(id) {
+    busy = false;
+    ws.send(JSON.stringify({ type: 'start', id }));
+  }
+
+  // ---------- 行编辑器（↑↓ 历史、←→ 光标、常用快捷键）----------
+  const editor = LineEditor.createLineEditor({
+    write: (str) => term.write(str),
+    prompt: PROMPT,
+    onCommand: (cmd) => sendCommand(cmd),
+  });
+
   function writePrompt() {
-    term.write(PROMPT);
+    editor.reset();
   }
 
   function writeOutput(text) {
@@ -93,43 +111,10 @@
     progressEl.textContent = `第 ${index + 1}/${totalCount} 个场景`;
   }
 
-  // ---------- 命令发送 ----------
-  function sendCommand(cmd) {
-    if (busy) return;
-    busy = true;
-    ws.send(JSON.stringify({ type: 'input', text: cmd }));
-  }
-
-  function startScenario(id) {
-    lineBuffer = '';
-    busy = false;
-    ws.send(JSON.stringify({ type: 'start', id }));
-  }
-
-  // ---------- 终端输入处理 ----------
+  // ---------- 终端输入 ----------
   term.onData((data) => {
     if (busy) return;
-    for (const ch of data) {
-      if (ch === '\r') {
-        term.write('\r\n');
-        const cmd = lineBuffer.trim();
-        lineBuffer = '';
-        if (cmd) sendCommand(cmd);
-        else writePrompt();
-      } else if (ch === '\x7f') {
-        if (lineBuffer.length) {
-          lineBuffer = lineBuffer.slice(0, -1);
-          term.write('\b \b');
-        }
-      } else if (ch === '\x03') {
-        term.write('^C\r\n');
-        lineBuffer = '';
-        writePrompt();
-      } else if (ch >= ' ') {
-        lineBuffer += ch;
-        term.write(ch);
-      }
-    }
+    editor.handleData(data);
   });
 
   // ---------- WebSocket 消息 ----------
