@@ -30,7 +30,14 @@ process.stdout.on('error', (err) => {
  * next() 返回一行文本；输入结束（EOF）时返回 null。
  */
 function createLineReader(onInterrupt) {
-  const rl = readline.createInterface({ input: process.stdin });
+  // 关键：传 output 并开启 terminal 模式，否则方向键/历史/光标移动全部失效
+  const terminal = Boolean(process.stdin.isTTY && process.stdout.isTTY);
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+    terminal,
+    historySize: 200,
+  });
   const queue = [];
   let waiters = [];
   let done = false;
@@ -57,6 +64,11 @@ function createLineReader(onInterrupt) {
       if (queue.length) return Promise.resolve(queue.shift());
       if (done) return Promise.resolve(null);
       return new Promise((resolve) => waiters.push(resolve));
+    },
+    // 显示提示符：交给 readline 管理，以支持 ↑↓ 历史、←→ 光标移动等行编辑
+    prompt(text) {
+      rl.setPrompt(text);
+      rl.prompt();
     },
     close() {
       rl.close();
@@ -111,11 +123,10 @@ async function runScenario(scenario, progress, reader) {
   console.log(`${c.dim}${await session.graph()}${c.reset}`);
   console.log(`${c.yellow}小提示:${c.reset} 先运行 ${c.cyan}git status${c.reset} 看看当前状态，随时输入 ${c.cyan}check${c.reset} 校验进度。`);
 
-  const prompt = () =>
-    process.stdout.write(`${c.bold}${c.magenta}${session.sandbox.name}${c.reset} > `);
+  const promptStr = `${c.bold}${c.magenta}${session.sandbox.name}${c.reset} > `;
 
   while (true) {
-    prompt();
+    reader.prompt(promptStr);
     const line = await reader.next();
 
     if (line === null) {
@@ -247,7 +258,7 @@ async function attachCli() {
   };
 
   while (true) {
-    process.stdout.write(`${c.bold}${c.magenta}attach${c.reset} > `);
+    reader.prompt(`${c.bold}${c.magenta}attach${c.reset} > `);
     const line = await reader.next();
     if (line === null) {
       ws.close();
@@ -308,7 +319,7 @@ async function main() {
       await listScenarios();
 
       if (process.stdin.isTTY) {
-        process.stdout.write(`请输入场景 id（默认 ${scenarios[0].meta.id}）: `);
+        reader.prompt(`请输入场景 id（默认 ${scenarios[0].meta.id}）: `);
         const choice = await reader.next();
         const chosen = (choice || '').trim();
         startIndex = scenarios.findIndex((s) => s.meta.id === chosen);
