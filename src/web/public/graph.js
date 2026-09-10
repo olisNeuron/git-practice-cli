@@ -13,7 +13,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const PALETTE = ['#58a6ff', '#3fb950', '#d29922', '#bc8cff', '#f85149', '#39c5cf', '#ff7b72', '#a5d6ff'];
+  const PALETTE = ['#2563eb', '#16a34a', '#d97706', '#9333ea', '#dc2626', '#0891b2', '#ea580c', '#4f46e5'];
 
   /** 为每个提交分配行（row）与泳道（lane），并生成父子连线 */
   function buildLayout(commits) {
@@ -78,10 +78,10 @@
   }
 
   function refBadge(ref) {
-    if (ref.startsWith('HEAD -> ')) return { text: `[${ref.slice(8)}]`, color: '#d29922' };
-    if (ref === 'HEAD') return { text: '[HEAD]', color: '#d29922' };
-    if (ref.startsWith('tag: ')) return { text: `[${ref.slice(5)}]`, color: '#bc8cff' };
-    return { text: `[${ref}]`, color: '#3fb950' };
+    if (ref.startsWith('HEAD -> ')) return { text: `[${ref.slice(8)}]`, color: '#b45309' };
+    if (ref === 'HEAD') return { text: '[HEAD]', color: '#b45309' };
+    if (ref.startsWith('tag: ')) return { text: `[${ref.slice(5)}]`, color: '#7c3aed' };
+    return { text: `[${ref}]`, color: '#0e9f6e' };
   }
 
   function toSVG(layout, opts) {
@@ -120,16 +120,16 @@
       const cx = x(n.lane);
       const cy = y(n.row);
       parts.push(
-        `<circle cx="${cx}" cy="${cy}" r="${o.radius}" fill="${colorOf(n.lane)}" stroke="#0d1117" stroke-width="1.5"/>`
+        `<circle cx="${cx}" cy="${cy}" r="${o.radius}" fill="${colorOf(n.lane)}" stroke="#111111" stroke-width="1.5"/>`
       );
 
       const tspans = [];
       for (const ref of n.refs) {
         const b = refBadge(ref);
-        tspans.push(`<tspan fill="${b.color}" font-weight="600">${esc(b.text)} </tspan>`);
+        tspans.push(`<tspan fill="${b.color}" font-weight="700">${esc(b.text)} </tspan>`);
       }
-      tspans.push(`<tspan fill="#8b949e">${esc(n.hash.slice(0, 7))} </tspan>`);
-      tspans.push(`<tspan fill="#e6edf3">${esc(n.subject)}</tspan>`);
+      tspans.push(`<tspan fill="#8a8a8a">${esc(n.hash.slice(0, 7))} </tspan>`);
+      tspans.push(`<tspan fill="#111111">${esc(n.subject)}</tspan>`);
       parts.push(`<text x="${labelX}" y="${cy + 4}" font-size="12.5">${tspans.join('')}</text>`);
     }
 

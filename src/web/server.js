@@ -25,7 +25,8 @@ function sendJSON(res, code, obj) {
 }
 
 function serveStatic(req, res) {
-  const urlPath = req.url === '/' ? '/index.html' : req.url.split('?')[0];
+  const pathname = req.url.split('?')[0];
+  const urlPath = pathname === '/' ? '/index.html' : pathname;
   const file = path.join(PUBLIC_DIR, urlPath);
   if (!file.startsWith(PUBLIC_DIR)) {
     res.writeHead(403);
@@ -103,31 +104,44 @@ function startServer({ openBrowser = true, port } = {}) {
     if (ws.readyState === 1) ws.send(JSON.stringify(obj));
   }
 
+  // 串行化场景切换，避免并发 startSession 造成沙盒泄漏
+  let startLock = Promise.resolve();
+
   async function startSession(id) {
-    clearTimeout(advanceTimer);
-    if (session) {
-      session.cleanup();
-      activeSessions.delete(session);
-      session = null;
-    }
-    const scenario = scenarios.find((s) => s.meta.id === id) || scenarios[0];
-    currentIndex = scenarios.findIndex((s) => s.meta.id === scenario.meta.id);
-    session = new Session(scenario);
-    activeSessions.add(session);
-    await session.init();
-    const snap = await session.snapshot();
-    const target = await targetGraphFor(scenario);
-    broadcast({
-      type: 'scenario',
-      meta: scenarioMeta(scenario),
-      index: currentIndex,
-      total,
-      graph: snap.graph,
-      status: snap.status,
-      graphData: snap.graphData,
-      targetGraph: target.graph,
-      targetGraphData: target.graphData,
+    const prev = startLock;
+    let release;
+    startLock = new Promise((resolve) => {
+      release = resolve;
     });
+    await prev;
+    try {
+      clearTimeout(advanceTimer);
+      if (session) {
+        session.cleanup();
+        activeSessions.delete(session);
+        session = null;
+      }
+      const scenario = scenarios.find((s) => s.meta.id === id) || scenarios[0];
+      currentIndex = scenarios.findIndex((s) => s.meta.id === scenario.meta.id);
+      session = new Session(scenario);
+      activeSessions.add(session);
+      await session.init();
+      const snap = await session.snapshot();
+      const target = await targetGraphFor(scenario);
+      broadcast({
+        type: 'scenario',
+        meta: scenarioMeta(scenario),
+        index: currentIndex,
+        total,
+        graph: snap.graph,
+        status: snap.status,
+        graphData: snap.graphData,
+        targetGraph: target.graph,
+        targetGraphData: target.graphData,
+      });
+    } finally {
+      release();
+    }
   }
 
   async function handleInput(text) {

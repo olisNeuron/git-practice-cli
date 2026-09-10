@@ -84,6 +84,11 @@ test('server: 首页与静态资源可访问', async () => {
     assert.equal(home.status, 200);
     assert.match(home.body, /Git 练习工具/);
 
+    // 根路径带查询串（深链接）也应正常返回首页
+    const homeQuery = await httpGet(port, '/?scenario=04-conflict');
+    assert.equal(homeQuery.status, 200);
+    assert.match(homeQuery.body, /Git 练习工具/);
+
     const app = await httpGet(port, '/app.js');
     assert.equal(app.status, 200);
 

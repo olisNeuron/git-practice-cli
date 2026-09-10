@@ -6,11 +6,14 @@
   const term = new Terminal({
     cursorBlink: true,
     fontSize: 14,
-    fontFamily: '"SF Mono", "JetBrains Mono", Menlo, Consolas, monospace',
+    fontFamily: '"Space Mono", "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace',
     theme: {
-      background: '#010409',
-      foreground: '#e6edf3',
-      cursor: '#58a6ff',
+      background: '#0e0e0e',
+      foreground: '#f5f5f0',
+      cursor: '#ffd23f',
+      selectionBackground: '#ffd23f55',
+      black: '#0e0e0e',
+      brightBlack: '#6b6b6b',
     },
   });
   const fit = new FitAddon.FitAddon();
@@ -36,6 +39,9 @@
   let total = 0;
   let busy = false;
   let toastTimer = null;
+
+  // 支持 ?scenario=04-conflict 深链接
+  const initialScenario = new URLSearchParams(location.search).get('scenario');
 
   const PROMPT = '\x1b[1;35m> \x1b[0m';
 
@@ -143,6 +149,10 @@
       scenarioSelect.innerHTML = scenarios
         .map((s) => `<option value="${escapeHtml(s.id)}">${escapeHtml(s.title)}</option>`)
         .join('');
+      // 若带 ?scenario= 参数，切换到指定场景（服务器默认已开始第一个）
+      if (initialScenario && scenarios.some((s) => s.id === initialScenario)) {
+        startScenario(initialScenario);
+      }
     } else if (msg.type === 'scenario') {
       currentIndex = msg.index;
       total = msg.total;
