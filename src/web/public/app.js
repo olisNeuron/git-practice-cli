@@ -8,11 +8,10 @@
     fontSize: 14,
     fontFamily: '"Space Mono", "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace',
     theme: {
-      background: '#0e0e0e',
-      foreground: '#f5f5f0',
-      cursor: '#ffd23f',
-      selectionBackground: '#ffd23f55',
-      black: '#0e0e0e',
+      background: '#101010',
+      foreground: '#f3f0e7',
+      cursor: '#ffc800',
+      selectionBackground: '#ffc80055',
       brightBlack: '#6b6b6b',
     },
   });

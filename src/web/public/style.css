@@ -1,15 +1,17 @@
-/* ===== 新粗野主义设计 tokens ===== */
+/* ===== 新粗野主义 · 协调版 =====
+   原则：一个装饰性强调色（黄）+ 中性色（黑/米/白）+ 语义色（成功/失败）
+*/
 :root {
-  --ink: #111111;
-  --ink-soft: #3a3a3a;
-  --paper: #fbf6e8;
+  --ink: #101010;
+  --paper: #f3f0e7;
   --panel: #ffffff;
-  --yellow: #ffd23f;
-  --cyan: #35d0d0;
-  --pink: #ff5c8a;
-  --green: #2fbf71;
-  --blue: #4d7cfe;
   --muted: #6b6b6b;
+  --accent: #ffc800;
+
+  /* 语义色：只在成功 / 失败时出现 */
+  --success: #1fa85c;
+  --danger: #e5484d;
+
   --shadow: 5px 5px 0 var(--ink);
   --shadow-sm: 3px 3px 0 var(--ink);
   --bw: 3px;
@@ -28,15 +30,15 @@ html, body {
 
 body { display: flex; flex-direction: column; }
 
-/* ===== 顶栏 ===== */
+/* ===== 顶栏：黑底，黄只作点缀 ===== */
 header {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 14px 20px;
-  background: var(--yellow);
-  border-bottom: var(--border);
-  box-shadow: 0 5px 0 var(--ink);
+  padding: 13px 20px;
+  background: var(--ink);
+  color: var(--paper);
+  border-bottom: 4px solid var(--accent);
   position: relative;
   z-index: 3;
   flex: 0 0 auto;
@@ -44,11 +46,12 @@ header {
 
 .brand { display: flex; align-items: center; gap: 10px; }
 .brand .logo {
-  font-size: 24px;
+  font-size: 22px;
   line-height: 1;
-  background: var(--ink);
-  color: var(--yellow);
-  padding: 2px 8px;
+  background: var(--accent);
+  color: var(--ink);
+  padding: 3px 9px;
+  font-weight: 900;
 }
 .brand h1 {
   font-size: 19px;
@@ -56,6 +59,7 @@ header {
   font-weight: 900;
   letter-spacing: -0.03em;
   text-transform: uppercase;
+  color: var(--paper);
 }
 
 .controls { display: flex; gap: 10px; align-items: center; }
@@ -88,23 +92,23 @@ button {
   font-family: inherit;
   transition: none;
 }
-button:hover { background: var(--yellow); }
+button:hover { background: #f0ede4; }
 button:active { transform: translate(3px, 3px); box-shadow: none; }
-button.primary { background: var(--green); color: #fff; }
-button.primary:hover { background: #27a862; }
+button.primary { background: var(--accent); }
+button.primary:hover { background: #ffd633; }
 
+/* 进度：唯一的大块黄 */
 .progress {
   margin-left: auto;
-  background: var(--ink);
-  color: var(--paper);
-  border: var(--border);
-  box-shadow: var(--shadow-sm);
+  background: var(--accent);
+  color: var(--ink);
   padding: 7px 14px;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   white-space: nowrap;
+  border: var(--bw) solid var(--accent);
 }
 
 /* ===== 主区域 ===== */
@@ -121,7 +125,7 @@ main {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  background: #0e0e0e;
+  background: #101010;
   border: var(--border);
   box-shadow: var(--shadow);
 }
@@ -161,11 +165,11 @@ main {
 
 /* 场景信息卡 */
 #scenario-info { padding: 14px; }
-#scenario-info h2 { margin: 8px 0 0; font-size: 18px; font-weight: 900; letter-spacing: -0.02em; }
+#scenario-info h2 { margin: 10px 0 0; font-size: 18px; font-weight: 900; letter-spacing: -0.02em; }
 #scenario-info .difficulty {
   display: inline-block;
-  background: var(--cyan);
-  border: 2px solid var(--ink);
+  background: var(--ink);
+  color: var(--paper);
   padding: 2px 9px;
   font-size: 11px;
   font-weight: 800;
@@ -186,8 +190,9 @@ main {
   line-height: 1.5;
   font-weight: 600;
   margin: 5px 0 0;
-  background: var(--yellow);
+  background: var(--panel);
   border: 2px solid var(--ink);
+  border-left: 8px solid var(--accent);
   padding: 9px 11px;
 }
 
@@ -201,7 +206,7 @@ pre {
   color: var(--ink);
 }
 
-#status-box { color: var(--ink-soft); padding: 12px 14px; }
+#status-box { color: var(--muted); padding: 12px 14px; }
 
 /* ===== 提交图 ===== */
 .graph-block { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 240px; }
@@ -211,7 +216,7 @@ pre {
 .graph-tools .tab {
   background: transparent;
   color: var(--paper);
-  border: 2px solid var(--paper);
+  border: 2px solid rgba(243, 240, 231, 0.5);
   box-shadow: none;
   padding: 2px 8px;
   font-size: 10px;
@@ -219,10 +224,10 @@ pre {
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
-.graph-tools .tab:hover { background: var(--yellow); color: var(--ink); border-color: var(--ink); }
-.graph-tools .tab.active { background: var(--paper); color: var(--ink); border-color: var(--paper); }
+.graph-tools .tab:hover { background: var(--paper); color: var(--ink); border-color: var(--paper); }
+.graph-tools .tab.active { background: var(--accent); color: var(--ink); border-color: var(--accent); }
 .graph-tools .tab:active { transform: none; }
-.graph-tools .sep { color: var(--paper); opacity: 0.5; font-weight: 800; }
+.graph-tools .sep { color: rgba(243, 240, 231, 0.5); font-weight: 800; }
 
 .graph-box { overflow: auto; flex: 1 1 auto; padding: 10px 12px; }
 .graph-box svg { display: block; }
@@ -237,15 +242,15 @@ pre {
   padding: 14px;
 }
 
-/* ===== Toast ===== */
+/* ===== Toast：黑底黄字 ===== */
 .toast {
   position: fixed;
   bottom: 26px;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--yellow);
-  color: var(--ink);
-  border: var(--border);
+  background: var(--ink);
+  color: var(--accent);
+  border: var(--bw) solid var(--accent);
   box-shadow: var(--shadow);
   font-weight: 900;
   font-size: 14px;

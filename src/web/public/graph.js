@@ -13,7 +13,8 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const PALETTE = ['#2563eb', '#16a34a', '#d97706', '#9333ea', '#dc2626', '#0891b2', '#ea580c', '#4f46e5'];
+  // 统一饱和度/明度的色家族，避免“彩虹感”
+  const PALETTE = ['#2b6cb0', '#2f855a', '#b7791f', '#6b46c1', '#c53030', '#2c7a7b'];
 
   /** 为每个提交分配行（row）与泳道（lane），并生成父子连线 */
   function buildLayout(commits) {
@@ -78,10 +79,10 @@
   }
 
   function refBadge(ref) {
-    if (ref.startsWith('HEAD -> ')) return { text: `[${ref.slice(8)}]`, color: '#b45309' };
-    if (ref === 'HEAD') return { text: '[HEAD]', color: '#b45309' };
-    if (ref.startsWith('tag: ')) return { text: `[${ref.slice(5)}]`, color: '#7c3aed' };
-    return { text: `[${ref}]`, color: '#0e9f6e' };
+    if (ref.startsWith('HEAD -> ')) return { text: `[${ref.slice(8)}]`, color: '#b7791f' };
+    if (ref === 'HEAD') return { text: '[HEAD]', color: '#b7791f' };
+    if (ref.startsWith('tag: ')) return { text: `[${ref.slice(5)}]`, color: '#6b46c1' };
+    return { text: `[${ref}]`, color: '#2f855a' };
   }
 
   function toSVG(layout, opts) {
