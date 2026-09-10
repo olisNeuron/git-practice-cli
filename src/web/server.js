@@ -63,7 +63,7 @@ function scenarioMeta(s) {
  * 任一客户端执行命令后，结果广播给所有客户端，实现实时切换。
  */
 function startServer({ openBrowser = true, port } = {}) {
-  const PORT = port || Number(process.env.PORT) || 3000;
+  const PORT = port !== undefined ? port : Number(process.env.PORT) || 3000;
   const scenarios = loadScenarios();
   const total = scenarios.length;
 
@@ -180,22 +180,31 @@ function startServer({ openBrowser = true, port } = {}) {
     });
   });
 
-  function shutdown() {
+  function cleanupSession() {
     clearTimeout(advanceTimer);
     for (const s of activeSessions) s.cleanup();
     activeSessions.clear();
+    session = null;
+  }
+
+  function shutdown() {
+    cleanupSession();
     server.close(() => process.exit(0));
     setTimeout(() => process.exit(0), 500).unref();
   }
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
 
+  // 服务器关闭时（含测试直接 close）也清理共享会话
+  server.on('close', cleanupSession);
+
   server.listen(PORT, () => {
-    const url = `http://localhost:${PORT}`;
+    const actualPort = server.address().port;
+    const url = `http://localhost:${actualPort}`;
     console.log('');
     console.log('Git 练习工具会话服务器已启动');
     console.log(`  Web 视图:  ${url}`);
-    console.log(`  CLI 视图:  node src/cli/cli.js attach${PORT !== 3000 ? `  (PORT=${PORT})` : ''}`);
+    console.log(`  CLI 视图:  node src/cli/cli.js attach${actualPort !== 3000 ? `  (PORT=${actualPort})` : ''}`);
     console.log('  两端实时同步，任一端操作另一端即时刷新');
     console.log('  按 Ctrl+C 退出服务器');
     console.log('');

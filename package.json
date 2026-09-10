@@ -9,7 +9,8 @@
   "scripts": {
     "start": "node src/cli/cli.js",
     "web": "node src/cli/cli.js web",
-    "list": "node src/cli/cli.js --list"
+    "list": "node src/cli/cli.js --list",
+    "test": "node --test"
   },
   "dependencies": {
     "ws": "^8.18.0"
